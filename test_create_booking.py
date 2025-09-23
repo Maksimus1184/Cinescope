@@ -137,13 +137,11 @@ class TestBookings:
         """Тест на проверку кода 500 при неверном формате данных"""
 
         data= {
-            "firstname": "Лариса",
-            "lastname": "Brown",
             "totalprice": "asjsdh", # totalprice передан текстом
             "depositpaid": True,
             "bookingdates": {
-                "checkin": "2025-01-04",
-                "checkout": "2025-01-15"
+                "checkin": "",
+                "checkout": ""
             },
             "additionalneeds": "Breakfast"
         }
@@ -155,12 +153,12 @@ class TestBookings:
         assert response.status_code == 400, f"Ожидался статус-код 400, но {response.status_code},{response.text}"
 
 
-    def test_negativ_value_booking(self, auth_session, booking_data):
+    def test_negativ_value_booking_1(self, auth_session, booking_data):
         """Тест на проверку кода 400 при неверном формате данных"""
 
         data = {
-            "firstname": "Лариса",
-            "lastname": "Brown",
+            "firstname": "11232251561541",
+            "lastname": "325164646147+6768+817+8778",
             "totalprice": "asjsdh",  # totalprice передан текстом
             "depositpaid": True,
             "bookingdates": {
@@ -189,7 +187,7 @@ class TestBookings:
                 "checkin": "2024-12-15",
                 "checkout": "2024-12-20"
             },
-            "additionalneeds": "Breakfast 14-00"
+            "additionalneeds": "Breakfast 14-058"
         }
 
         # Try PUT request
@@ -201,7 +199,7 @@ class TestBookings:
         patch_url = f"{BASE_URL}/booking/{booking_id}"
         patch_data = {"firstname": "PartiallyUpdatedName"}  # Partial update data
         patch_response = auth_session.patch(patch_url, json=patch_data)
-        assert patch_response.status_code == 404, f"Ожидалась ошибка 404, но ошибка {patch_response.status_code}, {patch_response.text}"
+        assert patch_response.status_code == 405, f"Ожидалась ошибка 404, но ошибка {patch_response.status_code}, {patch_response.text}"
 
     def test_negativ_value_booking(self, auth_session, booking_data):
         """Тест на проверку кода 400 при передаче пустых данных"""

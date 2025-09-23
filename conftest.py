@@ -35,3 +35,13 @@ def booking_data():
         },
         "additionalneeds": "Cigars"
     }
+
+@pytest.fixture
+def create_booking(auth_session, booking_data):
+    """Creates a booking and returns the booking ID.  Deletes the booking after the test."""
+    response = auth_session.post(f"{BASE_URL}/booking", json=booking_data)
+    assert response.status_code == 200, f"Failed to create booking: {response.status_code} - {response.text}"
+    booking_id = response.json().get("bookingid")
+    assert booking_id is not None, "Booking ID not found in create response"
+
+    yield booking_id
