@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="Black">
+<<<<<<< HEAD
     <option name="sdkName" value="Python 3.13 (Cinescope_Max2025)" />
+=======
+    <option name="sdkName" value="Python 3.13 (Restful_Booker)" />
+>>>>>>> 8eecc49c2283353e75e715b02ace85ccbd0f8119
   </component>
 </project>

@@ -2,7 +2,11 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+<<<<<<< HEAD
       <module fileurl="file://$PROJECT_DIR$/.idea/Cinescope_Max2025.iml" filepath="$PROJECT_DIR$/.idea/Cinescope_Max2025.iml" />
+=======
+      <module fileurl="file://$PROJECT_DIR$/.idea/Restful_Booker.iml" filepath="$PROJECT_DIR$/.idea/Restful_Booker.iml" />
+>>>>>>> 8eecc49c2283353e75e715b02ace85ccbd0f8119
     </modules>
   </component>
 </project>
