@@ -2,9 +2,9 @@ from faker import Faker
 import pytest
 import requests
 from constants import BASE_URL, REGISTER_ENDPOINT
-from custom_requester import CustomRequester
+from custom_requester.custom_requester import CustomRequester
 from utils.data_generator import DataGenerator
-from api_manager import ApiManager
+from api.api_manager import ApiManager
 
 faker = Faker()
 

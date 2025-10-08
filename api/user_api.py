@@ -1,4 +1,4 @@
-from custom_requester import CustomRequester
+from custom_requester.custom_requester import CustomRequester
 
 class UserAPI(CustomRequester):
     def __init__(self, session, base_url): # <-- ДОЛЖЕН ПРИНИМАТЬ base_url

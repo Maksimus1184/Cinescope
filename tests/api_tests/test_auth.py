@@ -1,5 +1,4 @@
-from constants import LOGIN_ENDPOINT
-from api_manager import ApiManager
+from api.api_manager import ApiManager
 
 
 class TestAuthAPI:
