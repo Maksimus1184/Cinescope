@@ -1,5 +1,4 @@
 import json
-import requests
 import logging
 import os
 
@@ -20,8 +19,17 @@ class CustomRequester:
         self.logger.setLevel(logging.INFO)
 
     def send_request(self, method, endpoint, data=None, expected_status=200, need_logging=True):
+        """
+        Универсальный метод для отправки запросов.
+        :param method: HTTP метод (GET, POST, PUT, DELETE и т.д.).
+        :param endpoint: Эндпоинт (например, "/login").
+        :param data: Тело запроса (JSON-данные).
+        :param expected_status: Ожидаемый статус-код (по умолчанию 200).
+        :param need_logging: Флаг для логирования (по умолчанию True).
+        :return: Объект ответа requests.Response.
+        """
         url = f"{self.base_url}{endpoint}"
-        response = self.session.request(method, url, json=data)
+        response = self.session.request(method, url, json=data, headers=self.headers)
         if need_logging:
             self.log_request_and_response(response)
         if response.status_code != expected_status:
@@ -71,3 +79,12 @@ class CustomRequester:
             self.logger.info(f"{'=' * 80}\n")
         except Exception as e:
             self.logger.error(f"\nLogging failed: {type(e)} - {e}")
+
+    def _update_session_headers(self, session, **kwargs):
+        """
+        Обновление заголовков сессии.
+        :param session: Объект requests.Session, предоставленный API-классом.
+        :param kwargs: Дополнительные заголовки.
+        """
+        self.headers.update(kwargs)  # Обновляем базовые заголовки
+        session.headers.update(self.headers)  # Обновляем заголовки в текущей сессии
