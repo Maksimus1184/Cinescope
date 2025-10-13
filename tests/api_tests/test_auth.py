@@ -9,6 +9,8 @@ class TestAuthAPI:
         response = api_manager.auth_api.register_user(test_user)
         response_data = response.json()
 
+        print(response.status_code)
+        print(response.json())
         # Проверки
         assert response_data["email"] == test_user["email"], "Email не совпадает"
         assert "id" in response_data, "ID пользователя отсутствует в ответе"

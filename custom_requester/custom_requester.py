@@ -1,14 +1,11 @@
-<<<<<<< HEAD
 import json
 import logging
 import os
-=======
+
 import pytest
 import requests
 import logging  # <-- Импортируем logging
 import json  # <-- Если используете json=, лучше импортировать
-
->>>>>>> 8eecc49c2283353e75e715b02ace85ccbd0f8119
 
 class CustomRequester:
     """
@@ -22,7 +19,6 @@ class CustomRequester:
     def __init__(self, session, base_url):
         self.session = session
         self.base_url = base_url
-<<<<<<< HEAD
         self.headers = self.base_headers.copy()
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.INFO)
@@ -89,21 +85,18 @@ class CustomRequester:
         except Exception as e:
             self.logger.error(f"\nLogging failed: {type(e)} - {e}")
 
-    def _update_session_headers(self, session, **kwargs):
+
+    def _update_session_headers(self, **kwargs): # **kwargs содержит {'authorization': 'Bearer token'}
         """
-        Обновление заголовков сессии.
-        :param session: Объект requests.Session, предоставленный API-классом.
-        :param kwargs: Дополнительные заголовки.
+        Обновляет заголовки сессии, к которой принадлежит этот requester.
         """
-        self.headers.update(kwargs)  # Обновляем базовые заголовки
-        session.headers.update(self.headers)  # Обновляем заголовки в текущей сессии
-=======
-        self.headers = self.base_headers.copy()  # Можно добавить эти заголовки в сессию здесь
-        self.session.headers.update(self.headers)  # Например, если вы хотите, чтобы они были всегда
-        self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.INFO)
-        # Убедитесь, что логгер настроен, если хотите видеть вывод логов
-        # logging.basicConfig()
+        # Обновляем заголовки сессии, к которой этот requester имеет доступ
+        if hasattr(self.session, 'headers'):
+            # Просто добавляем новые заголовки из kwargs
+            self.session.headers.update(kwargs)
+            self.logger.info(f"Обновлены заголовки сессии: {kwargs}")
+        else:
+            self.logger.warning("Объект сессии не имеет атрибута 'headers'. Заголовки не обновлены.")
 
     def log_request_and_response(self, response):
         """Логирует информацию о запросе и ответе."""
@@ -130,7 +123,7 @@ class CustomRequester:
 
     # Исправленный метод send_request
     def send_request(self, method, endpoint, json=None, data=None, expected_status=None, need_logging=True,
-                     headers=None):
+                     headers=None, params=None):
         url = f"{self.base_url}{endpoint}"
         try:
             current_headers = self.session.headers.copy()
@@ -141,6 +134,7 @@ class CustomRequester:
                 self.logger.info(f"Запрос: {method} {url}")
                 self.logger.info(f"  Заголовки: {current_headers}")
                 if json: self.logger.info(f"  JSON: {json}")
+                if params: self.logger.info(f"  Параметры: {params}")
                 elif data: self.logger.info(f"  Data: {data}")
 
             response_obj = self.session.request(
@@ -171,4 +165,4 @@ class CustomRequester:
             pytest.fail(f"Ошибка сети при запросе к {method} {url}: {e}")
         except AssertionError as e:
             pytest.fail(f"Ошибка проверки статуса: {e}")
->>>>>>> 8eecc49c2283353e75e715b02ace85ccbd0f8119
+

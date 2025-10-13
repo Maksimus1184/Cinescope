@@ -1,11 +1,13 @@
 from faker import Faker
 import pytest
 import requests
-<<<<<<< HEAD
-from constants import BASE_URL, REGISTER_ENDPOINT
+from constants import REGISTER_ENDPOINT
 from custom_requester.custom_requester import CustomRequester
 from utils.data_generator import DataGenerator
 from api.api_manager import ApiManager
+from constants import BASE_URL, HEADERS, BOOKING_ENDPOINT
+import json
+
 
 faker = Faker()
 
@@ -35,7 +37,7 @@ def registered_user(requester, test_user):
     response = requester.send_request(
         method="POST",
         endpoint=REGISTER_ENDPOINT,
-        data=test_user,
+        json=test_user,
         expected_status=201
     )
     response_data = response.json()
@@ -64,20 +66,15 @@ def session():
 
 
 @pytest.fixture(scope="session")
-def api_manager(session):
+def api_manager():
     """
-    Фикстура для создания экземпляра ApiManager.
+    Инициализирует ApiManager с общей сессией.
     """
-    return ApiManager(session=session)
-
-=======
-from constants import BASE_URL, HEADERS, AUTH_ENDPOINT, BOOKING_ENDPOINT
-from custom_requester.custom_requester import CustomRequester
-import json
-
+    session = requests.Session()
+    manager = ApiManager(session=session)
+    return manager
 
 faker = Faker()
-
 
 @pytest.fixture(scope="session")
 def auth_session(base_url):
@@ -179,4 +176,62 @@ def requester():
 def base_url():
     """Возвращает базовый URL для API."""
     return "https://restful-booker.herokuapp.com"
->>>>>>> 8eecc49c2283353e75e715b02ace85ccbd0f8119
+
+@pytest.fixture(scope="function")
+def create_movie_data():
+    """
+    Генерация случайных данных для создания фильма.
+    """
+    movie_data = {
+        "name": DataGenerator.generate_movie_title(),
+        "imageUrl": DataGenerator.generate_image_url(),
+        "price": DataGenerator.generate_price(),
+        "description": DataGenerator.generate_description(),
+        "location": DataGenerator.generate_location(),
+        "published": True,
+        "genreId": 1
+    }
+    return movie_data
+
+
+@pytest.fixture(scope="function")
+def admin_movies_api_client(api_manager):
+    """
+    Возвращает экземпляр MoviesAPI, авторизованный с админскими кредами.
+    """
+    admin_credentials = {
+        "email": "api1@gmail.com",
+        "password": "asdqwe123Q"
+    }
+
+    token = None  # Инициализируем token как None
+    try:
+        token = api_manager.auth_api.authenticate(admin_credentials)
+
+        # --- ПРОВЕРКА ПОЛУЧЕННОГО ТОКЕНА ---
+        if token is None:
+            pytest.fail("API аутентификации вернул None, токен не был получен.")
+        if not isinstance(token, str) or not token:  # Проверка, что это непустая строка
+            pytest.fail(f"API аутентификации вернул некорректный токен: {token}")
+        # --- КОНЕЦ ПРОВЕРКИ ---
+
+        print(f"Admin token obtained: {token[:5]}...{token[-5:]}")
+
+        # Теперь, когда мы уверены, что токен есть, устанавливаем его
+        auth_header_value = f"Bearer {token}"
+        api_manager.session.headers.update({"Authorization": auth_header_value})
+        print(f"Authorization header set in session: {api_manager.session.headers.get('Authorization')}")
+
+    except Exception as e:
+        # Если authenticate выбросил исключение (например, KeyError или другой)
+        pytest.fail(f"Ошибка при аутентификации администратора: {e}")
+
+    # --- Убедимся, что токен действительно установлен в сессию ---
+    if "Authorization" not in api_manager.session.headers or api_manager.session.headers[
+        "Authorization"] != auth_header_value:
+        # Эта проверка может быть излишней, если предыдущий try-except перехватывает все,
+        # но полезно для отладки, если authenticate не выбрасывает исключение, а просто возвращает None.
+        pytest.fail("Токен не был корректно установлен в api_manager.session.headers после аутентификации.")
+
+    return api_manager.movies_api
+
