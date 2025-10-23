@@ -74,45 +74,21 @@ def api_manager():
     manager = ApiManager(session=session)
     return manager
 
-faker = Faker()
 
 @pytest.fixture(scope="session")
-def auth_session(base_url):
-    login_data = {"username": "admin", "password": "password123"}
-    login_session = requests.Session()
-    temp_requester = CustomRequester(login_session, base_url)
+def authorized_api_manager(api_manager):
+    """
+    Фикстура для создания авторизованной сессии через ApiManager.
+    Возвращает настроенный ApiManager с установленным токеном авторизации.
+    """
+    admin_credentials = {
+        "email": "api1@gmail.com",
+        "password": "asdqwe123Q"
+    }
 
-    # Вызов send_request должен вернуть Response. Он проверит статус.
-    response = temp_requester.send_request(
-        method="POST",
-        endpoint="/auth",
-        json=login_data,
-        expected_status=200
-    )
+    api_manager.auth_api.authenticate(admin_credentials)
+    return api_manager
 
-    # --- Проверяем, что вернулось ---
-    # Теперь response - это ОБЪЕКТ RESPONSE.
-
-    # Пытаемся получить JSON, но если что-то не так, это ошибка логина.
-    try:
-        token_data = response.json()  # Попытка распарсить JSON
-    except json.JSONDecodeError:
-        # Если не удалось распарсить JSON, значит, логин не удался.
-        pytest.fail(
-            f"Не удалось распарсить JSON ответа для логина. Статус: {response.status_code}. Ответ: {response.text}")
-
-    # Здесь, если дошли сюда, то response.json() успешно распарсился
-    # token_data - это словарь, который мы ожидаем.
-    token = token_data.get("token")
-    assert token is not None, "Auth token not found in response"
-
-    authorized_session_obj = requests.Session()
-    authorized_requester = CustomRequester(authorized_session_obj, base_url)
-    authorized_requester.session.headers.update({"Cookie": f"token={token}"})
-
-    print(f"\nАвторизованная сессия создана с токеном: {token[:10]}...")
-    yield authorized_requester
-    print("\nАвторизованная сессия завершена.")
 
 
 @pytest.fixture
@@ -164,13 +140,6 @@ def create_booking(auth_session, booking_data):
 
     # Yield: возвращаем booking_id для теста.
     yield booking_id
-@pytest.fixture(scope="session")
-def requester():
-    """Фикстура для создания экземпляра CustomRequester."""
-    session = requests.Session()
-    # Устанавливаем общие заголовки для сессии, если они есть
-    session.headers.update(HEADERS)
-    return CustomRequester(session=session, base_url=BASE_URL)
 
 @pytest.fixture(scope="session")
 def base_url():
@@ -192,46 +161,4 @@ def create_movie_data():
         "genreId": 1
     }
     return movie_data
-
-
-@pytest.fixture(scope="function")
-def admin_movies_api_client(api_manager):
-    """
-    Возвращает экземпляр MoviesAPI, авторизованный с админскими кредами.
-    """
-    admin_credentials = {
-        "email": "api1@gmail.com",
-        "password": "asdqwe123Q"
-    }
-
-    token = None  # Инициализируем token как None
-    try:
-        token = api_manager.auth_api.authenticate(admin_credentials)
-
-        # --- ПРОВЕРКА ПОЛУЧЕННОГО ТОКЕНА ---
-        if token is None:
-            pytest.fail("API аутентификации вернул None, токен не был получен.")
-        if not isinstance(token, str) or not token:  # Проверка, что это непустая строка
-            pytest.fail(f"API аутентификации вернул некорректный токен: {token}")
-        # --- КОНЕЦ ПРОВЕРКИ ---
-
-        print(f"Admin token obtained: {token[:5]}...{token[-5:]}")
-
-        # Теперь, когда мы уверены, что токен есть, устанавливаем его
-        auth_header_value = f"Bearer {token}"
-        api_manager.session.headers.update({"Authorization": auth_header_value})
-        print(f"Authorization header set in session: {api_manager.session.headers.get('Authorization')}")
-
-    except Exception as e:
-        # Если authenticate выбросил исключение (например, KeyError или другой)
-        pytest.fail(f"Ошибка при аутентификации администратора: {e}")
-
-    # --- Убедимся, что токен действительно установлен в сессию ---
-    if "Authorization" not in api_manager.session.headers or api_manager.session.headers[
-        "Authorization"] != auth_header_value:
-        # Эта проверка может быть излишней, если предыдущий try-except перехватывает все,
-        # но полезно для отладки, если authenticate не выбрасывает исключение, а просто возвращает None.
-        pytest.fail("Токен не был корректно установлен в api_manager.session.headers после аутентификации.")
-
-    return api_manager.movies_api
 

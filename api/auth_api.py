@@ -20,7 +20,7 @@ class AuthAPI(CustomRequester):
             expected_status=expected_status
         )
 
-    def login_user(self, login_data, expected_status=201):
+    def login_user(self, login_data, expected_status=200):
         """
         Авторизация пользователя.
         :param login_data: Данные для логина.
@@ -45,29 +45,22 @@ class AuthAPI(CustomRequester):
         }
 
         try:
-            # Предполагаем, что login_user возвращает объект ответа, у которого есть .json()
+            # send_request уже проверяет статус и логирует ошибки
             response_obj = self.login_user(login_data)
             response_data = response_obj.json()
-        except AttributeError:  # Если login_user вернул None или не объект с .json()
-            self.logger.error("login_user не вернул валидный объект ответа.")
+
+            # Получаем токен
+            token = response_data.get("accessToken")
+            if not token:
+                self.logger.error(f"Токен не найден в ответе. Ответ: {response_data}")
+                return None
+
+            # Обновляем заголовки сессии
+            self._update_session_headers(**{"authorization": "Bearer " + token})
+            self.logger.info("Токен получен и установлен в сессию")
+
+            return token
+
+        except Exception as e:
+            self.logger.error(f"Ошибка при аутентификации: {e}")
             return None
-        except Exception as e:  # Другие возможные ошибки при вызове login_user или .json()
-            self.logger.error(
-                f"Ошибка при вызове login_user или обработке ответа: {e}. Ответ: {response_obj.text if response_obj else 'No response object'}")
-            return None
-
-        token_key = "accessToken"
-        if token_key not in response_data:
-            error_message = f"Ключ '{token_key}' не найден в ответе API после логина. Ответ: {response_data}"
-            self.logger.error(error_message)
-            return None  # Возвращаем None, если токен отсутствует
-
-        token = response_data[token_key]
-
-        # Обновляем заголовки сессии
-        self._update_session_headers(**{"authorization": "Bearer " + token})
-
-        self.logger.info(f"Токен получен и установлен в сессию.")
-
-        # --- ЯВНО ВОЗВРАЩАЕМ ТОКЕН ---
-        return token
