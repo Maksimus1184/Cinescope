@@ -1,8 +1,15 @@
 import random
 import string
+import pytest
+
+
 
 class TestMoviesAPI:
 
+    @pytest.mark.api
+    @pytest.mark.smoke
+    @pytest.mark.regression
+    @pytest.mark.integration
     def test_create_movie_as_admin(self, authorized_api_manager, create_movie_data):
         """
         Тест на создание фильма с использованием токена админа.
@@ -22,6 +29,10 @@ class TestMoviesAPI:
         # Дополнительно, если API возвращает ID созданного фильма
         assert "id" in response_data, "ID фильма отсутствует в ответе"
 
+    @pytest.mark.api
+    @pytest.mark.smoke
+    @pytest.mark.regression
+    @pytest.mark.integration
     def test_get_movies(self, authorized_api_manager):
         """
         Тест на получение списка фильмов.
@@ -53,6 +64,10 @@ class TestMoviesAPI:
 
         print(f"Код ответа {response.status_code}, Текст ответа: {response.text}")
 
+    @pytest.mark.api
+    @pytest.mark.smoke
+    @pytest.mark.regression
+    @pytest.mark.integration
     def test_create_and_get_movie_id_as_admin(self, authorized_api_manager, create_movie_data):
         """
         Тест на создание фильма с использованием токена админа и его поиск по ID.
@@ -88,6 +103,10 @@ class TestMoviesAPI:
         print(f"Жанр: {movie_data_by_id['genre']['name']}")
         print(f"Статус публикации: {movie_data_by_id['published']}")
 
+    @pytest.mark.api
+    @pytest.mark.smoke
+    @pytest.mark.regression
+    @pytest.mark.integration
     def test_update_movie_as_admin(self, authorized_api_manager, create_movie_data):
         """
         Тест на редактирование фильма с использованием токена админа.
@@ -131,6 +150,10 @@ class TestMoviesAPI:
 
         print(f"✅ Фильм с ID {movie_id} успешно отредактирован и изменения сохранены в БД")
 
+    @pytest.mark.api
+    @pytest.mark.smoke
+    @pytest.mark.regression
+    @pytest.mark.integration
     def test_delete_movie(self, authorized_api_manager, create_movie_data):
         """
         Тест на создание фильма с использованием токена админа и его удаление.
@@ -152,7 +175,18 @@ class TestMoviesAPI:
         assert get_response.status_code == 404
         print("Фильм успешно удален и больше не доступен")
 
+    @pytest.mark.api
+    @pytest.mark.regression  # УБРАЛ smoke - негативный тест
+    @pytest.mark.integration
+    def test_create_movie_admin(self, super_admin, create_movie_data):
+        response = super_admin.api.movies_api.create_movie(create_movie_data, expected_status=201)
+        print(f"Ответ сервера: {response.text}, код ответа: {response.status_code} ")
+
 class TestNegativeMoviesAPI:
+
+    @pytest.mark.api
+    @pytest.mark.regression
+    @pytest.mark.integration
     def test_create_unpublished_movie_with_invalid_location(self, authorized_api_manager, create_movie_data):
         """
         Негативный тест: создание неопубликованного фильма с невалидной локацией.
@@ -174,6 +208,10 @@ class TestNegativeMoviesAPI:
         assert "message" in response_data or "error" in response_data, "В ответе отсутствует сообщение об ошибке"
         print(f"Тест пройден: получена ожидаемая ошибка - {response_data}")
 
+    @pytest.mark.api
+    @pytest.mark.smoke  # ДОБАВИЛ smoke - это позитивный тест по сути
+    @pytest.mark.regression
+    @pytest.mark.integration
     def test_create_movie_with_invalid_value(self, authorized_api_manager, create_movie_data):
         """
         Тест на создание фильма с использованием токена админа.
@@ -196,6 +234,9 @@ class TestNegativeMoviesAPI:
         # Дополнительно, если API возвращает ID созданного фильма
         assert "id" in response_data, "ID фильма отсутствует в ответе"
 
+    @pytest.mark.api
+    @pytest.mark.regression
+    @pytest.mark.integration
     def test_get_movies_without_params(self, authorized_api_manager):
         """
         Негативный тест: получение списка фильмов без обязательных параметров.
@@ -207,6 +248,9 @@ class TestNegativeMoviesAPI:
         assert response.status_code == 200, f"Ожидалась ошибка 400 без параметров, но получен {response.status_code}"
         print(f"Без pageSize: код {response.status_code}, ответ: {response.text}")
 
+    @pytest.mark.api
+    @pytest.mark.regression
+    @pytest.mark.integration
     def test_get_movie_by_nonexistent_id(self, authorized_api_manager):
         """
         Негативный тест: поиск фильма по несуществующему ID.
@@ -225,6 +269,9 @@ class TestNegativeMoviesAPI:
         print(f"Тест пройден: для несуществующего ID {nonexistent_id} получена ожидаемая ошибка 404")
         print(f"Сообщение об ошибке: {response_data}")
 
+    @pytest.mark.api
+    @pytest.mark.regression
+    @pytest.mark.integration
     def test_update_movie_with_empty_data(self, authorized_api_manager, create_movie_data):
         """
         Тест: обновление фильма с пустыми данными.
@@ -252,6 +299,9 @@ class TestNegativeMoviesAPI:
         assert updated_movie["name"] == created_movie["name"]
         assert updated_movie["price"] == created_movie["price"]
 
+    @pytest.mark.api
+    @pytest.mark.regression
+    @pytest.mark.integration
     def test_update_movie_with_invalid_id(self, authorized_api_manager, create_movie_data):
         """
         Негативный тест: обновление несуществующего фильма.
@@ -269,6 +319,9 @@ class TestNegativeMoviesAPI:
         assert "message" in response_data
         print(f"Несуществующий ID: код {response.status_code}, ошибка: {response_data['message']}")
 
+    @pytest.mark.api
+    @pytest.mark.regression
+    @pytest.mark.integration
     def test_update_movie_with_invalid_data(self, authorized_api_manager, create_movie_data):
         """
         Негативный тест: обновление фильма с невалидными типами данных.
@@ -293,6 +346,9 @@ class TestNegativeMoviesAPI:
         assert response.status_code == 400
         print(f"Невалидные типы: код {response.status_code}, ответ: {response.text}")
 
+    @pytest.mark.api
+    @pytest.mark.regression
+    @pytest.mark.integration
     def test_delete_movie_with_invalid_id(self, authorized_api_manager, create_movie_data):
         """
         Негативный тест: обновление несуществующего фильма.
@@ -308,3 +364,96 @@ class TestNegativeMoviesAPI:
         response_data = response.json()
         assert "message" in response_data
         print(f"Несуществующий ID: код {response.status_code}, ошибка: {response_data['message']}")
+
+    @pytest.mark.api
+    @pytest.mark.regression
+    @pytest.mark.integration
+    @pytest.mark.slow
+    def test_create_movie_user(self, common_user):
+        common_user.api.movies_api.create_movie(common_user.email, expected_status=400)
+
+class TestMoviesAPIParametrized:
+    @pytest.mark.api
+    @pytest.mark.smoke
+    @pytest.mark.regression
+    @pytest.mark.integration
+    @pytest.mark.parametrize("min_price, max_price, locations, genre_id", [(1, 1000, ["MSK", "SPB"], 1)])
+    def test_get_movies_with_filters(self, authorized_api_manager, min_price, max_price, locations, genre_id):
+        """
+        Параметризированный тест на получение фильмов с различными фильтрами.
+        Проверяет соответствие цены, локаций и жанра.
+        """
+        params = {
+            "pageSize": 10,
+            "page": 1,
+            "minPrice": min_price,
+            "maxPrice": max_price,
+            "locations": locations,
+            "published": True,
+            "createdAt": "asc",
+            "genreId": genre_id
+        }
+
+        response = authorized_api_manager.movies_api.get_movies(params=params)
+        response_data = response.json()
+
+        assert response.status_code == 200 , f"Ожидается статус 200 или 201, получен {response.status_code}"
+        print(f"Код ответа {response.status_code}, тело ответа: {response.text}")
+
+
+class TestMovieDeletionPermissions:
+    """Тесты на проверку прав удаления фильмов для разных ролей"""
+
+    @pytest.mark.api
+    @pytest.mark.regression
+    @pytest.mark.integration
+    @pytest.mark.parametrize("role_fixture, delete_status, get_status, is_super_admin, test_description", [
+        ("common_user", 403, 200, False, "Обычный пользователь не может удалить фильм"),
+        ("common_admin", 403, 200, False, "Администратор не может удалить фильм"),
+        ("super_admin", 200, 404, True, "Супер-администратор может удалить фильм"),
+    ], ids=["common_user", "common_admin", "super_admin"])
+    def test_movie_deletion_permissions(
+            self,
+            role_fixture,
+            delete_status,
+            get_status,
+            is_super_admin,
+            test_description,
+            create_movie_data,
+            authorized_api_manager,
+            request
+    ):
+        """
+        Параметризованный тест на проверку прав удаления фильмов
+
+        Args:
+            role_fixture (str): Имя фикстуры с пользователем
+            delete_status (int): Ожидаемый статус при удалении
+            get_status (int): Ожидаемый статус при получении фильма
+            is_super_admin (bool): Является ли пользователь супер-админом
+            test_description (str): Описание теста
+            create_movie_data: Фикстура с данными для создания фильма
+            authorized_api_manager: Фикстура API менеджера
+            request: Фикстура pytest для получения фикстур по имени
+        """
+        # Получаем объект пользователя по имени фикстуры
+        user = request.getfixturevalue(role_fixture)
+
+        # Создаем фильм
+        response = authorized_api_manager.movies_api.create_movie(create_movie_data)
+        movie_id = response.json().get("id")
+
+        # Пытаемся удалить фильм
+        user.api.movies_api.delete_movie(movie_id, expected_status=delete_status)
+
+        # Проверяем состояние фильма
+        authorized_api_manager.movies_api.get_movie_by_id(movie_id, expected_status=get_status)
+
+        # Дополнительная проверка для супер-админа
+        if is_super_admin:
+            # Убеждаемся, что фильм действительно удален и не может быть получен
+            authorized_api_manager.movies_api.get_movie_by_id(movie_id, expected_status=404)
+        else:
+            # Убеждаемся, что фильм все еще существует
+            response = authorized_api_manager.movies_api.get_movie_by_id(movie_id, expected_status=200)
+            assert response.json().get("id") == movie_id
