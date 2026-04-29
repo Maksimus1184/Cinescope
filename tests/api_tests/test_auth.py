@@ -1,9 +1,12 @@
 from dbm.sqlite3 import error
-
+import allure
+from enums.enums import Roles
 from api.api_manager import ApiManager
 from models.base_models import RegisterUserResponse
 import  pytest
 from models.base_models import TestUser, LoginRequest, LoginResponse, ErrorResponse
+import datetime
+from pytest_check import check
 
 
 class TestAuthAPI:
@@ -106,4 +109,84 @@ class TestAuthAPI:
         assert error_response.statusCode in [401]
         assert error_response.message == "Неверный логин или пароль"
         assert error_response.error == "Unauthorized"
+
+    @allure.title("Тест регистрации пользователя с помощью Mock")
+    @allure.severity(allure.severity_level.MINOR)
+    @allure.label("qa_name", "Ivan Petrovich")
+    def test_register_user_mock(self, api_manager: ApiManager, test_user: TestUser, mocker):
+        with allure.step(" Мокаем метод register_user в auth_api"):
+            mock_response = RegisterUserResponse(  # Фиктивный ответ
+                id="id",
+                email="email@email.com",
+                fullName="fullName",
+                verified=True,
+                banned=False,
+                roles=Roles.SUPER_ADMIN.value,
+                createdAt=str(datetime.datetime.now())
+            )
+
+            mocker.patch.object(
+                api_manager.auth_api,  # Объект, который нужно замокать
+                'register_user',  # Метод, который нужно замокать
+                return_value=mock_response  # Фиктивный ответ
+            )
+
+        with allure.step("Вызываем метод, который должен быть замокан"):
+            register_user_response = api_manager.auth_api.register_user(test_user)
+
+        with allure.step("Проверяем, что ответ соответствует ожидаемому"):
+            with allure.step("Проверка поля персональных данных"):  # обратите внимание на вложенность allure.step
+                with check:
+                    # Строка ниже выдаст исключение и но выполнение теста продолжится
+                    check.equal(register_user_response.fullName, "INCORRECT_NAME", "НЕСОВПАДЕНИЕ fullName")
+                    check.equal(register_user_response.email, mock_response.email)
+
+            with allure.step("Проверка поля banned"):
+                with check("Проверка поля banned"):  # можно использовать вместо allure.step
+                    check.equal(register_user_response.banned, mock_response.banned)
+
+    @allure.title("Тест регистрации пользователя с помощью Mock")
+    @allure.severity(allure.severity_level.MINOR)
+    @allure.label("qa_name", "Ivan Petrovich")
+    def test_register_user_mock(self, api_manager: ApiManager, test_user: TestUser, mocker):
+        with allure.step("Мокаем метод register_user в auth_api"):
+            mock_response = RegisterUserResponse(
+                id="id",
+                email="email@email.com",
+                fullName="fullName",
+                verified=True,
+                banned=False,
+                roles=Roles.SUPER_ADMIN.value,
+                createdAt=str(datetime.datetime.now())
+            )
+
+            mocker.patch.object(
+                api_manager.auth_api,
+                'register_user',
+                return_value=mock_response
+            )
+
+        with allure.step("Вызываем метод, который должен быть замокан"):
+            register_user_response = api_manager.auth_api.register_user(test_user)
+
+        with allure.step("Проверяем, что ответ соответствует ожидаемому"):
+            with allure.step("Проверка поля персональных данных"):
+                with check:
+                    # Теперь сравниваем с правильным значением
+                    check.equal(
+                        register_user_response.fullName,
+                        mock_response.fullName,  # <-- ИСПРАВЛЕНО
+                        "НЕСОВПАДЕНИЕ fullName"
+                    )
+                    check.equal(
+                        register_user_response.email,
+                        mock_response.email
+                    )
+
+            with allure.step("Проверка поля banned"):
+                with check("Проверка поля banned"):
+                    check.equal(
+                        register_user_response.banned,
+                        mock_response.banned
+                    )
 

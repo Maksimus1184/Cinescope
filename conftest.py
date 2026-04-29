@@ -12,8 +12,10 @@ from constants import BASE_URL, HEADERS, BOOKING_ENDPOINT
 from models.base_models import TestUser
 import json
 import logging
-
-
+from sqlalchemy.orm import Session
+from db_requester.db_client import get_db_session
+from db_requester.db_helpers import DBHelper
+from utils.data_generator import DataGenerator
 
 faker = Faker()
 
@@ -263,3 +265,65 @@ def common_admin(user_session, super_admin, creation_user_data: TestUser):
     common_admin.api.auth_api.authenticate(common_admin.get_creds_dict())
 
     return common_admin
+
+@pytest.fixture(scope="module")
+def db_session() -> Session:
+    """
+    Фикстура, которая создает и возвращает сессию для работы с базой данных
+    После завершения теста сессия автоматически закрывается
+    """
+    db_session = get_db_session()
+    yield db_session
+    db_session.close()
+
+@pytest.fixture(scope="function")
+def db_helper(db_session) -> DBHelper:
+    """
+    Фикстура для экземпляра хелпера
+    """
+    db_helper = DBHelper(db_session)
+    return db_helper
+
+@pytest.fixture(scope="function")
+def created_test_user(db_helper):
+    """
+    Фикстура, которая создает тестового пользователя в БД
+    и удаляет его после завершения теста
+    """
+    user = db_helper.create_test_user(DataGenerator.generate_user_data())
+    yield user
+    # Cleanup после теста
+    if db_helper.get_user_by_id(user.id):
+        db_helper.delete_user(user)
+
+
+@pytest.fixture(scope="function")
+def created_test_movie(db_helper):
+    """
+    Фикстура, которая создает тестовый фильм в БД
+    и удаляет его после завершения теста
+
+    Args:
+        db_helper: фикстура с helper для работы с БД
+
+    Returns:
+        MovieDBModel: созданный фильм
+    """
+    # 1. Генерируем данные для фильма
+    movie_data = DataGenerator.generate_movie_data()
+
+    # 2. Проверяем, что фильма еще нет в БД
+    assert not db_helper.movie_exists_by_name(movie_data['name']), \
+        f"Фильм с названием {movie_data['name']} уже существует в БД"
+
+    # 3. Создаем фильм в БД
+    movie = db_helper.create_test_movie(movie_data)
+    print(f"\nСоздан тестовый фильм: {movie.name} (ID: {movie.id})")
+
+    # 4. Передаем фильм в тест
+    yield movie
+
+    # 5. После теста удаляем фильм (cleanup)
+    if db_helper.movie_exists_by_id(movie.id):
+        db_helper.delete_movie(movie)
+        print(f"Тестовый фильм удален: {movie.name}")

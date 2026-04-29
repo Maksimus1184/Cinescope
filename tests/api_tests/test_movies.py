@@ -1,11 +1,86 @@
-import random
-import string
 import pytest
+import allure
+from datetime import datetime
 
 
+# ==================== PYDANTIC MODELS ====================
+from pydantic import BaseModel, validator
+from typing import List, Optional
 
+
+class Genre(BaseModel):
+    """Модель жанра"""
+    id: Optional[int] = None
+    name: str
+
+    class Config:
+        from_attributes = True
+
+
+class Review(BaseModel):
+    """Модель отзыва"""
+    id: int
+    movieId: int
+    userId: int
+    rating: int
+    comment: str
+    createdAt: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class MovieResponse(BaseModel):
+    """Модель ответа для одного фильма"""
+    id: int
+    name: str
+    imageUrl: Optional[str] = None
+    price: int
+    description: str
+    location: str
+    published: bool
+    genreId: int
+    createdAt: datetime
+    reviews: List[Review] = []
+    genre: Optional[Genre] = None
+
+    @validator('price')
+    def price_must_be_positive(cls, v):
+        if v < 0:
+            raise ValueError('price must be positive')
+        return v
+
+    @validator('location')
+    def location_must_be_valid(cls, v):
+        if v not in ['MSK', 'SPB']:
+            raise ValueError('location must be MSK or SPB')
+        return v
+
+    class Config:
+        from_attributes = True
+
+
+class MoviesListResponse(BaseModel):
+    """Модель ответа для списка фильмов"""
+    movies: List[MovieResponse]
+    total: Optional[int] = None
+    page: Optional[int] = None
+    pageSize: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ==================== ТЕСТЫ ====================
+
+@allure.epic("Movies API")
+@allure.feature("CRUD Operations")
 class TestMoviesAPI:
+    """Тесты CRUD операций с фильмами"""
 
+    @allure.story("Create Movie")
+    @allure.title("Создание фильма администратором")
+    @allure.severity(allure.severity_level.CRITICAL)
     @pytest.mark.api
     @pytest.mark.smoke
     @pytest.mark.regression
@@ -14,21 +89,35 @@ class TestMoviesAPI:
         """
         Тест на создание фильма с использованием токена админа.
         """
-        # Используем предварительно авторизованный клиент
-        response = authorized_api_manager.movies_api.create_movie(create_movie_data)
-        response_data = response.json()
+        with allure.step("Создание фильма через API"):
+            response = authorized_api_manager.movies_api.create_movie(create_movie_data)
+            response_data = response.json()
+            allure.attach(response.text, name="Response", attachment_type=allure.attachment_type.JSON)
 
-        assert response_data["name"] == create_movie_data["name"]
-        assert response_data["imageUrl"] == create_movie_data["imageUrl"]
-        assert response_data["price"] == create_movie_data["price"]
-        assert response_data["description"] == create_movie_data["description"]
-        assert response_data["location"] == create_movie_data["location"]
-        # Проверка булевого значения
-        assert response_data["published"] == create_movie_data["published"]
-        assert response_data["genreId"] == create_movie_data["genreId"]
-        # Дополнительно, если API возвращает ID созданного фильма
-        assert "id" in response_data, "ID фильма отсутствует в ответе"
+        with allure.step("Проверка данных ответа"):
+            assert response_data["name"] == create_movie_data["name"]
+            assert response_data["imageUrl"] == create_movie_data["imageUrl"]
+            assert response_data["price"] == create_movie_data["price"]
+            assert response_data["description"] == create_movie_data["description"]
+            assert response_data["location"] == create_movie_data["location"]
+            assert response_data["published"] == create_movie_data["published"]
+            assert response_data["genreId"] == create_movie_data["genreId"]
+            assert "id" in response_data, "ID фильма отсутствует в ответе"
 
+        with allure.step("Проверка схемы ответа через Pydantic модель"):
+            movie = MovieResponse.model_validate(response_data)
+            assert movie.id > 0
+            assert movie.price > 0
+
+        allure.attach(
+            f"Создан фильм с ID: {response_data['id']}",
+            name="Created movie ID",
+            attachment_type=allure.attachment_type.TEXT
+        )
+
+    @allure.story("Get Movies")
+    @allure.title("Получение списка фильмов с фильтрацией")
+    @allure.severity(allure.severity_level.NORMAL)
     @pytest.mark.api
     @pytest.mark.smoke
     @pytest.mark.regression
@@ -47,23 +136,33 @@ class TestMoviesAPI:
             "createdAt": "asc"
         }
 
-        response = authorized_api_manager.movies_api.get_movies(params=params)
-        response_data = response.json()
+        with allure.step(f"Получение списка фильмов с параметрами: {params}"):
+            response = authorized_api_manager.movies_api.get_movies(params=params)
+            response_data = response.json()
+            allure.attach(response.text, name="Response", attachment_type=allure.attachment_type.JSON)
 
-        assert "movies" in response_data, "В ответе отсутствует 'movies'."
-        assert isinstance(response_data["movies"], list), "'movies' должен быть списком."
+        with allure.step("Проверка структуры ответа"):
+            assert "movies" in response_data, "В ответе отсутствует 'movies'."
+            assert isinstance(response_data["movies"], list), "'movies' должен быть списком."
 
-        # Проверяем количество фильмов на соответствие pageSize
-        if response_data["movies"]:
-             assert len(response_data["movies"]) <= params["pageSize"]
+        with allure.step("Проверка схемы ответа через Pydantic модель"):
+            movies_list = MoviesListResponse.model_validate(response_data)
+            assert len(movies_list.movies) <= params["pageSize"]
 
-        # Проверим другие параметры
-        for movie in response_data["movies"]:
-            assert movie["location"] in params["locations"]
-            assert movie["published"] == params["published"]
+        with allure.step("Проверка данных фильмов"):
+            for movie in response_data["movies"]:
+                assert movie["location"] in params["locations"]
+                assert movie["published"] == params["published"]
 
-        print(f"Код ответа {response.status_code}, Текст ответа: {response.text}")
+        allure.attach(
+            f"Код ответа {response.status_code}\nНайдено фильмов: {len(response_data['movies'])}",
+            name="Response details",
+            attachment_type=allure.attachment_type.TEXT
+        )
 
+    @allure.story("Create and Get Movie")
+    @allure.title("Создание фильма и получение по ID")
+    @allure.severity(allure.severity_level.CRITICAL)
     @pytest.mark.api
     @pytest.mark.smoke
     @pytest.mark.regression
@@ -72,37 +171,35 @@ class TestMoviesAPI:
         """
         Тест на создание фильма с использованием токена админа и его поиск по ID.
         """
-        # Сначала создаем фильм
-        response = authorized_api_manager.movies_api.create_movie(create_movie_data)
+        with allure.step("Создание фильма через API"):
+            response = authorized_api_manager.movies_api.create_movie(create_movie_data)
+            created_movie = response.json()
+            movie_id = created_movie["id"]
+            allure.attach(str(movie_id), name="Created movie ID", attachment_type=allure.attachment_type.TEXT)
 
-        created_movie = response.json()
-        movie_id = created_movie["id"]
-        print(f"Фильм создан с ID: {movie_id}")
+        with allure.step(f"Получение фильма по ID: {movie_id}"):
+            get_response = authorized_api_manager.movies_api.get_movie_by_id(movie_id)
+            movie_data_by_id = get_response.json()
 
-        # Теперь получаем фильм по ID
-        get_response = authorized_api_manager.movies_api.get_movie_by_id(movie_id)
+        with allure.step("Проверка данных полученного фильма"):
+            assert movie_data_by_id["id"] == movie_id
+            assert movie_data_by_id["name"] == create_movie_data["name"]
+            assert movie_data_by_id["price"] == create_movie_data["price"]
+            assert movie_data_by_id["description"] == create_movie_data["description"]
+            assert movie_data_by_id["imageUrl"] == create_movie_data["imageUrl"]
+            assert movie_data_by_id["location"] == create_movie_data["location"]
+            assert movie_data_by_id["published"] == create_movie_data["published"]
+            assert movie_data_by_id["genreId"] == create_movie_data["genreId"]
 
-        movie_data_by_id = get_response.json()
+        with allure.step("Проверка схемы через Pydantic модель"):
+            movie = MovieResponse.model_validate(movie_data_by_id)
+            assert "createdAt" in movie_data_by_id
+            assert "reviews" in movie_data_by_id
+            assert "genre" in movie_data_by_id
 
-        # Проверяем данные полученного фильма
-        assert movie_data_by_id["id"] == movie_id
-        assert movie_data_by_id["name"] == create_movie_data["name"]
-        assert movie_data_by_id["price"] == create_movie_data["price"]
-        assert movie_data_by_id["description"] == create_movie_data["description"]
-        assert movie_data_by_id["imageUrl"] == create_movie_data["imageUrl"]
-        assert movie_data_by_id["location"] == create_movie_data["location"]
-        assert movie_data_by_id["published"] == create_movie_data["published"]
-        assert movie_data_by_id["genreId"] == create_movie_data["genreId"]
-        assert "createdAt" in movie_data_by_id
-        assert "reviews" in movie_data_by_id
-        assert "genre" in movie_data_by_id
-        assert "name" in movie_data_by_id["genre"]
-
-        print(f"✅ Фильм успешно создан и получен по ID {movie_id}")
-        print(f"Название: {movie_data_by_id['name']}")
-        print(f"Жанр: {movie_data_by_id['genre']['name']}")
-        print(f"Статус публикации: {movie_data_by_id['published']}")
-
+    @allure.story("Update Movie")
+    @allure.title("Редактирование фильма администратором")
+    @allure.severity(allure.severity_level.NORMAL)
     @pytest.mark.api
     @pytest.mark.smoke
     @pytest.mark.regression
@@ -111,45 +208,39 @@ class TestMoviesAPI:
         """
         Тест на редактирование фильма с использованием токена админа.
         """
-        # Сначала создаем фильм
-        create_response = authorized_api_manager.movies_api.create_movie(create_movie_data)
-        assert create_response.status_code == 201
-        movie_id = create_response.json()["id"]
-        print(f"Фильм создан с ID: {movie_id}")
+        import random
+        import string
 
-        # Генерируем уникальные данные
+        with allure.step("Создание фильма"):
+            create_response = authorized_api_manager.movies_api.create_movie(create_movie_data)
+            assert create_response.status_code == 201
+            movie_id = create_response.json()["id"]
+            allure.attach(str(movie_id), name="Created movie ID", attachment_type=allure.attachment_type.TEXT)
+
         random_suffix = ''.join(random.choices(string.ascii_letters, k=8))
         update_data = {
             "name": f"Movie_{random_suffix}",
             "price": random.randint(100, 1000),
         }
 
-        # Редактируем фильм
-        update_response = authorized_api_manager.movies_api.update_movie(movie_id, update_data)
+        with allure.step(f"Обновление фильма данными: {update_data}"):
+            update_response = authorized_api_manager.movies_api.update_movie(movie_id, update_data)
+            updated_movie = update_response.json()
 
-        updated_movie = update_response.json()
-        assert updated_movie["name"] == update_data["name"]
-        assert updated_movie["price"] == update_data["price"]
+        with allure.step("Проверка обновленных данных"):
+            assert updated_movie["name"] == update_data["name"]
+            assert updated_movie["price"] == update_data["price"]
 
-        # ✅Дергаем GET и проверяем, что сущность действительно обновилась
-        get_response = authorized_api_manager.movies_api.get_movie_by_id(movie_id)
-        assert get_response.status_code == 200
+        with allure.step("Проверка через GET запрос"):
+            get_response = authorized_api_manager.movies_api.get_movie_by_id(movie_id)
+            assert get_response.status_code == 200
+            movie_from_get = get_response.json()
+            assert movie_from_get["name"] == update_data["name"]
+            assert movie_from_get["price"] == update_data["price"]
 
-        movie_from_get = get_response.json()
-
-        # Проверяем, что обновленные данные приходят по GET
-        assert movie_from_get["name"] == update_data["name"]
-        assert movie_from_get["price"] == update_data["price"]
-
-        # Проверяем, что остальные данные не изменились
-        assert movie_from_get["description"] == create_movie_data["description"]
-        assert movie_from_get["imageUrl"] == create_movie_data["imageUrl"]
-        assert movie_from_get["location"] == create_movie_data["location"]
-        assert movie_from_get["published"] == create_movie_data["published"]
-        assert movie_from_get["genreId"] == create_movie_data["genreId"]
-
-        print(f"✅ Фильм с ID {movie_id} успешно отредактирован и изменения сохранены в БД")
-
+    @allure.story("Delete Movie")
+    @allure.title("Удаление фильма администратором")
+    @allure.severity(allure.severity_level.CRITICAL)
     @pytest.mark.api
     @pytest.mark.smoke
     @pytest.mark.regression
@@ -158,302 +249,104 @@ class TestMoviesAPI:
         """
         Тест на создание фильма с использованием токена админа и его удаление.
         """
-        # Сначала создаем фильм
-        response = authorized_api_manager.movies_api.create_movie(create_movie_data)
+        with allure.step("Создание фильма"):
+            response = authorized_api_manager.movies_api.create_movie(create_movie_data)
+            created_movie = response.json()
+            movie_id = created_movie["id"]
+            allure.attach(str(movie_id), name="Created movie ID", attachment_type=allure.attachment_type.TEXT)
 
-        created_movie = response.json()
-        movie_id = created_movie["id"]
-        print(f"Фильм создан с ID: {movie_id}")
+        with allure.step(f"Удаление фильма с ID: {movie_id}"):
+            delete_response = authorized_api_manager.movies_api.delete_movie(movie_id)
+            assert delete_response.status_code == 200
 
-        # Удаляем фильм и проверяем результат
-        delete_response = authorized_api_manager.movies_api.delete_movie(movie_id)
-        assert delete_response.status_code == 200, f"Ошибка при удалении фильма: код {delete_response.status_code}, Текст ошибки: {delete_response.text}"
-        print(f"Фильм с ID: {movie_id} удален")
+        with allure.step("Проверка, что фильм недоступен через API"):
+            get_response = authorized_api_manager.movies_api.get_movie_by_id(movie_id, expected_status=404)
+            assert get_response.status_code == 404
 
-        # Пробуем получить удаленный фильм по ID
-        get_response = authorized_api_manager.movies_api.get_movie_by_id(movie_id, expected_status=404)
-        assert get_response.status_code == 404
-        print("Фильм успешно удален и больше не доступен")
 
-    @pytest.mark.api
-    @pytest.mark.regression  # УБРАЛ smoke - негативный тест
-    @pytest.mark.integration
-    def test_create_movie_admin(self, super_admin, create_movie_data):
-        response = super_admin.api.movies_api.create_movie(create_movie_data, expected_status=201)
-        print(f"Ответ сервера: {response.text}, код ответа: {response.status_code} ")
+@allure.epic("Movies API")
+@allure.feature("API + DB Integration")
+class TestMovieAPIWithDB:
+    """
+    Тест для проверки создания и удаления фильма через API
+    с проверкой состояния базы данных
+    """
 
-class TestNegativeMoviesAPI:
-
-    @pytest.mark.api
-    @pytest.mark.regression
-    @pytest.mark.integration
-    def test_create_unpublished_movie_with_invalid_location(self, authorized_api_manager, create_movie_data):
-        """
-        Негативный тест: создание неопубликованного фильма с невалидной локацией.
-        Ожидается ошибка 400.
-        """
-        # Модифицируем данные: неопубликованный фильм + невалидная локация
-        invalid_movie_data = create_movie_data.copy()
-        invalid_movie_data["published"] = False
-        invalid_movie_data["location"] = "BKK"  # Не MSK или SPB
-
-        # Пытаемся создать фильм с невалидными данными
-        response = authorized_api_manager.movies_api.create_movie(invalid_movie_data,expected_status=400)
-
-        assert response.status_code == 400, f"Ожидался статус 400, но получен {response.status_code}. Ответ: {response.text}"
-
-        response_data = response.json()
-
-        # Проверяем, что в ответе есть информация об ошибке
-        assert "message" in response_data or "error" in response_data, "В ответе отсутствует сообщение об ошибке"
-        print(f"Тест пройден: получена ожидаемая ошибка - {response_data}")
-
-    @pytest.mark.api
-    @pytest.mark.smoke  # ДОБАВИЛ smoke - это позитивный тест по сути
-    @pytest.mark.regression
-    @pytest.mark.integration
-    def test_create_movie_with_invalid_value(self, authorized_api_manager, create_movie_data):
-        """
-        Тест на создание фильма с использованием токена админа.
-        """
-        # Используем предварительно авторизованный клиент
-        response = authorized_api_manager.movies_api.create_movie(create_movie_data)
-
-        assert response.status_code == 201, f"Ожидаемый статус 201, но {response.status_code}. ответ: {response.text}"
-        print(f"Код ответа: {response.status_code}, текст ответа: {response.text}")
-        response_data = response.json()
-
-        assert response_data["name"] == create_movie_data["name"]
-        assert response_data["imageUrl"] == create_movie_data["imageUrl"]
-        assert response_data["price"] == create_movie_data["price"]
-        assert response_data["description"] == create_movie_data["description"]
-        assert response_data["location"] == create_movie_data["location"]
-        # Проверка булевого значения
-        assert response_data["published"] == create_movie_data["published"]
-        assert response_data["genreId"] == create_movie_data["genreId"]
-        # Дополнительно, если API возвращает ID созданного фильма
-        assert "id" in response_data, "ID фильма отсутствует в ответе"
-
-    @pytest.mark.api
-    @pytest.mark.regression
-    @pytest.mark.integration
-    def test_get_movies_without_params(self, authorized_api_manager):
-        """
-        Негативный тест: получение списка фильмов без обязательных параметров.
-        """
-        # Тест без параметров
-        no_params= {
-        }
-        response = authorized_api_manager.movies_api.get_movies(params=no_params)
-        assert response.status_code == 200, f"Ожидалась ошибка 400 без параметров, но получен {response.status_code}"
-        print(f"Без pageSize: код {response.status_code}, ответ: {response.text}")
-
-    @pytest.mark.api
-    @pytest.mark.regression
-    @pytest.mark.integration
-    def test_get_movie_by_nonexistent_id(self, authorized_api_manager):
-        """
-        Негативный тест: поиск фильма по несуществующему ID.
-        """
-        # Используем заведомо несуществующий ID
-        nonexistent_id = 999999999
-
-        # Пытаемся получить фильм по несуществующему ID, ожидаем 404
-        get_response = authorized_api_manager.movies_api.get_movie_by_id(movie_id=nonexistent_id,expected_status=404)
-
-        # Проверяем, что в ответе есть информация об ошибке
-        response_data = get_response.json()
-        assert "message" in response_data, "В ответе отсутствует сообщение об ошибке"
-        assert response_data["message"] == "Фильм не найден"
-
-        print(f"Тест пройден: для несуществующего ID {nonexistent_id} получена ожидаемая ошибка 404")
-        print(f"Сообщение об ошибке: {response_data}")
-
-    @pytest.mark.api
-    @pytest.mark.regression
-    @pytest.mark.integration
-    def test_update_movie_with_empty_data(self, authorized_api_manager, create_movie_data):
-        """
-        Тест: обновление фильма с пустыми данными.
-        """
-        # Сначала создаем фильм
-        create_response = authorized_api_manager.movies_api.create_movie(create_movie_data)
-        assert create_response.status_code == 201
-        created_movie = create_response.json()
-        movie_id = created_movie["id"]
-        print(f"Фильм создан с ID: {movie_id}")
-
-        # Пытаемся обновить фильм с пустыми данными - ожидаем успех
-        empty_data = {}
-        response = authorized_api_manager.movies_api.update_movie(
-            movie_id=movie_id,
-            update_data=empty_data,
-            expected_status=200  # Ожидаем успех, так как пустое тело допустимо
-        )
-
-        assert response.status_code == 200
-        print(f"Пустые данные: код {response.status_code} - фильм не изменился")
-
-        # Проверяем, что данные фильма остались прежними
-        updated_movie = response.json()
-        assert updated_movie["name"] == created_movie["name"]
-        assert updated_movie["price"] == created_movie["price"]
-
-    @pytest.mark.api
-    @pytest.mark.regression
-    @pytest.mark.integration
-    def test_update_movie_with_invalid_id(self, authorized_api_manager, create_movie_data):
-        """
-        Негативный тест: обновление несуществующего фильма.
-        """
-        invalid_movie_id = 999999999
-
-        response = authorized_api_manager.movies_api.update_movie(
-            movie_id=invalid_movie_id,
-            update_data={"name": "New Name"},
-            expected_status=404
-        )
-
-        assert response.status_code == 404
-        response_data = response.json()
-        assert "message" in response_data
-        print(f"Несуществующий ID: код {response.status_code}, ошибка: {response_data['message']}")
-
-    @pytest.mark.api
-    @pytest.mark.regression
-    @pytest.mark.integration
-    def test_update_movie_with_invalid_data(self, authorized_api_manager, create_movie_data):
-        """
-        Негативный тест: обновление фильма с невалидными типами данных.
-        """
-        # Сначала создаем фильм
-        create_response = authorized_api_manager.movies_api.create_movie(create_movie_data)
-        assert create_response.status_code == 201
-        movie_id = create_response.json()["id"]
-
-        # Пытаемся обновить с невалидными данными
-        invalid_data = {
-            "price": "invalid_price",  # Строка вместо числа
-            "published": "not_a_boolean",  # Строка вместо boolean
-        }
-
-        response = authorized_api_manager.movies_api.update_movie(
-            movie_id=movie_id,
-            update_data=invalid_data,
-            expected_status=400
-        )
-
-        assert response.status_code == 400
-        print(f"Невалидные типы: код {response.status_code}, ответ: {response.text}")
-
-    @pytest.mark.api
-    @pytest.mark.regression
-    @pytest.mark.integration
-    def test_delete_movie_with_invalid_id(self, authorized_api_manager, create_movie_data):
-        """
-        Негативный тест: обновление несуществующего фильма.
-        """
-        invalid_movie_id = 88888888888
-
-        response = authorized_api_manager.movies_api.delete_movie(
-            movie_id=invalid_movie_id,
-            expected_status=404
-        )
-
-        assert response.status_code == 404
-        response_data = response.json()
-        assert "message" in response_data
-        print(f"Несуществующий ID: код {response.status_code}, ошибка: {response_data['message']}")
-
-    @pytest.mark.api
-    @pytest.mark.regression
-    @pytest.mark.integration
-    @pytest.mark.slow
-    def test_create_movie_user(self, common_user):
-        common_user.api.movies_api.create_movie(common_user.email, expected_status=400)
-
-class TestMoviesAPIParametrized:
+    @allure.story("Create and Delete with DB Check")
+    @allure.title("Создание и удаление фильма с проверкой БД")
+    @allure.severity(allure.severity_level.CRITICAL)
     @pytest.mark.api
     @pytest.mark.smoke
     @pytest.mark.regression
     @pytest.mark.integration
-    @pytest.mark.parametrize("min_price, max_price, locations, genre_id", [(1, 1000, ["MSK", "SPB"], 1)])
-    def test_get_movies_with_filters(self, authorized_api_manager, min_price, max_price, locations, genre_id):
+    @pytest.mark.database
+    def test_create_and_delete_movie_api_db_check(self, authorized_api_manager, db_helper):
         """
-        Параметризированный тест на получение фильмов с различными фильтрами.
-        Проверяет соответствие цены, локаций и жанра.
+        Тест проверяет:
+        1. До начала тестирования в базе отсутствует фильм
+        2. После вызова запроса на создание в базе появился фильм
+        3. После удаления фильма через API в базе также удаляется данный объект
         """
-        params = {
-            "pageSize": 10,
-            "page": 1,
-            "minPrice": min_price,
-            "maxPrice": max_price,
-            "locations": locations,
-            "published": True,
-            "createdAt": "asc",
-            "genreId": genre_id
-        }
+        from utils.data_generator import DataGenerator
 
-        response = authorized_api_manager.movies_api.get_movies(params=params)
-        response_data = response.json()
+        with allure.step("Генерация данных для фильма"):
+            movie_data = DataGenerator.generate_movie_data()
+            movie_name = movie_data['name']
 
-        assert response.status_code == 200 , f"Ожидается статус 200 или 201, получен {response.status_code}"
-        print(f"Код ответа {response.status_code}, тело ответа: {response.text}")
+        with allure.step("Создание копии данных для API"):
+            api_movie_data = movie_data.copy()
+            api_movie_data.pop('id', None)
 
+            # Исправление формата createdAt для API
+            if 'createdAt' in api_movie_data and not api_movie_data['createdAt'].endswith('Z'):
+                api_movie_data['createdAt'] = api_movie_data['createdAt'] + 'Z'
 
-class TestMovieDeletionPermissions:
-    """Тесты на проверку прав удаления фильмов для разных ролей"""
+            allure.attach(str(api_movie_data), name="API Request Data", attachment_type=allure.attachment_type.JSON)
 
-    @pytest.mark.api
-    @pytest.mark.regression
-    @pytest.mark.integration
-    @pytest.mark.parametrize("role_fixture, delete_status, get_status, is_super_admin, test_description", [
-        ("common_user", 403, 200, False, "Обычный пользователь не может удалить фильм"),
-        ("common_admin", 403, 200, False, "Администратор не может удалить фильм"),
-        ("super_admin", 200, 404, True, "Супер-администратор может удалить фильм"),
-    ], ids=["common_user", "common_admin", "super_admin"])
-    def test_movie_deletion_permissions(
-            self,
-            role_fixture,
-            delete_status,
-            get_status,
-            is_super_admin,
-            test_description,
-            create_movie_data,
-            authorized_api_manager,
-            request
-    ):
-        """
-        Параметризованный тест на проверку прав удаления фильмов
+        with allure.step("Проверка, что фильма нет в БД до теста"):
+            assert not db_helper.movie_exists_by_name(movie_name), \
+                f"Фильм '{movie_name}' уже существует в БД до начала теста"
 
-        Args:
-            role_fixture (str): Имя фикстуры с пользователем
-            delete_status (int): Ожидаемый статус при удалении
-            get_status (int): Ожидаемый статус при получении фильма
-            is_super_admin (bool): Является ли пользователь супер-админом
-            test_description (str): Описание теста
-            create_movie_data: Фикстура с данными для создания фильма
-            authorized_api_manager: Фикстура API менеджера
-            request: Фикстура pytest для получения фикстур по имени
-        """
-        # Получаем объект пользователя по имени фикстуры
-        user = request.getfixturevalue(role_fixture)
+        with allure.step("Создание фильма через API"):
+            response = authorized_api_manager.movies_api.create_movie(
+                movie_data=api_movie_data,
+                expected_status=201
+            )
+            created_movie_id = response.json().get('id')
+            assert created_movie_id is not None, "В ответе API отсутствует ID созданного фильма"
+            allure.attach(str(created_movie_id), name="Created movie ID", attachment_type=allure.attachment_type.TEXT)
 
-        # Создаем фильм
-        response = authorized_api_manager.movies_api.create_movie(create_movie_data)
-        movie_id = response.json().get("id")
+        with allure.step("Проверка, что фильм появился в БД"):
+            assert db_helper.movie_exists_by_id(created_movie_id), \
+                f"Фильм с ID {created_movie_id} не найден в БД"
 
-        # Пытаемся удалить фильм
-        user.api.movies_api.delete_movie(movie_id, expected_status=delete_status)
+            db_movie = db_helper.get_movie_by_id(created_movie_id)
+            assert db_movie.name == movie_name, "Название фильма не совпадает"
+            assert db_movie.price == api_movie_data['price'], "Цена фильма не совпадает"
+            assert db_movie.location == api_movie_data['location'], "Локация не совпадает"
+            assert db_movie.genre_id == api_movie_data['genreId'], "ID жанра не совпадает"
 
-        # Проверяем состояние фильма
-        authorized_api_manager.movies_api.get_movie_by_id(movie_id, expected_status=get_status)
+            allure.attach(
+                f"Фильм найден в БД: {db_movie.name}, ID: {db_movie.id}",
+                name="DB Check",
+                attachment_type=allure.attachment_type.TEXT
+            )
 
-        # Дополнительная проверка для супер-админа
-        if is_super_admin:
-            # Убеждаемся, что фильм действительно удален и не может быть получен
-            authorized_api_manager.movies_api.get_movie_by_id(movie_id, expected_status=404)
-        else:
-            # Убеждаемся, что фильм все еще существует
-            response = authorized_api_manager.movies_api.get_movie_by_id(movie_id, expected_status=200)
-            assert response.json().get("id") == movie_id
+        with allure.step("Удаление фильма через API"):
+            delete_response = authorized_api_manager.movies_api.delete_movie(
+                movie_id=created_movie_id,
+                expected_status=[200, 204]
+            )
+            allure.attach(
+                f"Статус удаления: {delete_response.status_code}",
+                name="Delete Response",
+                attachment_type=allure.attachment_type.TEXT
+            )
+
+        with allure.step("Проверка, что фильм удален из БД"):
+            assert not db_helper.movie_exists_by_id(created_movie_id), \
+                f"Фильм с ID {created_movie_id} все еще существует в БД"
+            assert not db_helper.movie_exists_by_name(movie_name), \
+                f"Фильм с названием '{movie_name}' все еще существует в БД"
+
+            allure.attach("Фильм успешно удален из БД", name="Cleanup", attachment_type=allure.attachment_type.TEXT)

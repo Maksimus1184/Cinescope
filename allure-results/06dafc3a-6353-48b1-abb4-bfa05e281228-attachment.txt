@@ -1,0 +1,3 @@
+[32mINFO    [0m custom_requester.custom_requester:custom_requester.py:89 Запрос: POST https://auth.dev-cinescope.coconutqa.ru/register
+[32mINFO    [0m custom_requester.custom_requester:custom_requester.py:90   Заголовки: {'User-Agent': 'python-requests/2.32.5', 'Accept-Encoding': 'gzip, deflate', 'Accept': '*/*', 'Connection': 'keep-alive'}
+[32mINFO    [0m custom_requester.custom_requester:custom_requester.py:92   JSON: {'id': None, 'email': 'kekd712v906@gmail.com', 'fullName': 'Sherry Rodriguez', 'password': ':vHN5VkoTBvNB#3hn', 'passwordRepeat': ':vHN5VkoTBvNB#3hn', 'roles': ['USER'], 'verified': None, 'banned': None}

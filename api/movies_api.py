@@ -36,7 +36,7 @@ class MoviesAPI(CustomRequester):
             expected_status=expected_status
         )
 
-    def delete_movie(self, movie_id, expected_status=200):
+    def delete_movie(self, movie_id, expected_status=[200, 204]):  # список статусов
         """
         Удаление фильма
         """

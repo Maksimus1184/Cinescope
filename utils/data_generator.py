@@ -1,6 +1,8 @@
 import random
 import string
 from faker import Faker
+import datetime
+from uuid import uuid4
 
 faker = Faker()
 
@@ -68,4 +70,79 @@ class DataGenerator:
         # Случайный выбор из известных локаций
         locations = ["SPB", "MSK"]
         return random.choice(locations)
+
+    @staticmethod
+    def generate_user_data() -> dict:
+        """Генерирует данные для тестового пользователя"""
+        return {
+            'id': str(uuid4()),  # генерируем UUID как строку
+            'email': DataGenerator.generate_random_email(),
+            'full_name': DataGenerator.generate_random_name(),
+            'password': DataGenerator.generate_random_password(),
+            'created_at': datetime.datetime.now(),
+            'updated_at': datetime.datetime.now(),
+            'verified': False,
+            'banned': False,
+            'roles': '{USER}'
+        }
+
+    @staticmethod
+    def generate_movie_data() -> dict:
+        """
+        Генерирует данные для тестового фильма
+        """
+        unique_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+
+        # Список существующих ID жанров (нужно узнать из документации или БД)
+        # Судя по ответу API, есть жанр с id 3 ("Фантастика")
+        existing_genre_ids = [3]
+
+        return {
+            'id': str(uuid4()),
+            'name': f"Test Movie {unique_id}",
+            'description': faker.paragraph(nb_sentences=3),
+            'price': random.randint(10, 100),
+            'imageUrl': f"https://test-cdn.com/movies/{unique_id}.jpg",
+            'location': random.choice(["SPB", "MSK"]),
+            'published': True,
+            'createdAt': datetime.datetime.now().isoformat(),
+            'rating': round(random.uniform(1.0, 10.0), 1),
+            'genreId': random.choice(existing_genre_ids)  # <-- ИЗМЕНЕНО: теперь число
+        }
+
+    @staticmethod
+    def generate_movie_data_with_params(**kwargs) -> dict:
+        """
+        Генерирует данные фильма с возможностью переопределить параметры
+
+        Args:
+            **kwargs: параметры для переопределения
+
+        Returns:
+            dict: словарь с данными фильма
+        """
+        movie_data = DataGenerator.generate_movie_data()
+        movie_data.update(kwargs)  # переопределяем переданные параметры
+        return movie_data
+
+    @staticmethod
+    def generate_random_int(length: int) -> int:
+        """
+        Генерирует случайное число заданной длины
+        Например: generate_random_int(5) -> 12345
+        """
+        import random
+        import string
+
+        # Генерируем случайное число указанной длины
+        min_value = 10 ** (length - 1)
+        max_value = (10 ** length) - 1
+        return random.randint(min_value, max_value)
+
+    @staticmethod
+    def generate_random_string(length: int) -> str:
+        """Генерирует случайную строку"""
+        import random
+        import string
+        return ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
 

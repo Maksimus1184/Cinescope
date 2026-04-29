@@ -1,0 +1,1 @@
+[1m[31mERROR   [0m root:test_pydantic.py:73 Ошибка валидации: test_pydantic.RegistrationUserData() argument after ** must be a mapping, not TestUser
