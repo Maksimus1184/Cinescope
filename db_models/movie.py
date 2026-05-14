@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Boolean, DateTime, Float
+from sqlalchemy import Column, String, Boolean, DateTime, Float, Integer
 from sqlalchemy.orm import declarative_base
 from typing import Dict, Any
 
@@ -8,16 +8,16 @@ Base = declarative_base()
 class MovieDBModel(Base):
     __tablename__ = 'movies'
 
-    id = Column(String, primary_key=True)  # text в БД
+    id = Column(Integer, primary_key=True)  # serial4 в БД -> int в Python
     name = Column(String)  # text в БД
     description = Column(String)  # text в БД
-    price = Column(Float)  # числа с плавающей точкой в БД
+    price = Column(Integer)  # int4 в БД (из вашего описания price int4)
     image_url = Column(String)  # text в БД
     location = Column(String)  # text в БД
     published = Column(Boolean)  # bool в БД
     created_at = Column(DateTime)  # timestamp в БД
-    rating = Column(Float)  # числа с плавающей точкой в БД
-    genre_id = Column(String)  # text в БД
+    rating = Column(Float)  # float8 в БД
+    genre_id = Column(Integer)  # int4 в БД
 
     def to_dict(self) -> Dict[str, Any]:
         """Преобразование в словарь"""
