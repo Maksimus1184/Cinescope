@@ -1,79 +1,90 @@
+# models/base_models.py
 from pydantic import BaseModel, Field, field_validator
-from typing import Optional
-import datetime
+from typing import List, Optional
 import re
-from typing import List
-from pydantic import BaseModel, Field, field_validator
-from enums.enums import Roles
-
+import datetime
 
 
 class TestUser(BaseModel):
-    id: Optional[str] = None  # Добавляем опциональное поле id
+    """Модель тестового пользователя для регистрации"""
     email: str
     fullName: str
     password: str
-    passwordRepeat: str = Field(..., min_length=1, max_length=20, description="passwordRepeat должен вполностью совпадать с полем password")
-    roles: List[str]
+    passwordRepeat: str
+    roles: List[str] = ["USER"]
+    # Поля ниже нужны только для ответа от API, не для отправки
+    id: Optional[str] = None
     verified: Optional[bool] = None
     banned: Optional[bool] = None
 
     @field_validator("passwordRepeat")
+    @classmethod
     def check_password_repeat(cls, value: str, info) -> str:
         if "password" in info.data and value != info.data["password"]:
             raise ValueError("Пароли не совпадают")
         return value
 
-    class Config:
-        json_encoders = {
-            Roles: lambda v: v.value
-        }
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        if not re.match(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$", v):
+            raise ValueError("Неверный формат email")
+        return v
 
-# Добавим модель для логина
+
 class LoginRequest(BaseModel):
+    """Модель запроса для логина"""
     email: str
     password: str
 
-# models/base_models.py (добавляем)
+
 class LoginResponse(BaseModel):
+    """Модель ответа для логина"""
     accessToken: str
-    user: dict  # или можно создать вложенную модель, но для простоты оставим dict
-    expiresIn: int  # из логов видно, что есть expiresIn
+    user: dict
+    expiresIn: int
+
 
 class ErrorResponse(BaseModel):
+    """Модель ответа с ошибкой"""
     message: str
     error: str
     statusCode: int
 
+
 class RegisterUserResponse(BaseModel):
+    """Модель ответа для регистрации"""
     id: str
-    email: str = Field(pattern=r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$", description="Email пользователя")
-    fullName: str = Field(min_length=1, max_length=100, description="Полное имя пользователя")
+    email: str
+    fullName: str
     verified: bool
-    banned: bool
     roles: List[str]
-    createdAt: str = Field(description="Дата и время создания пользователя в формате ISO 8601")
+    createdAt: str
+    # Делаем banned опциональным, так как API может не возвращать его
+    banned: Optional[bool] = None
 
     @field_validator("createdAt")
+    @classmethod
     def validate_created_at(cls, value: str) -> str:
-        # Валидатор для проверки формата даты и времени (ISO 8601).
         try:
             datetime.datetime.fromisoformat(value)
         except ValueError:
-            raise ValueError("Некорректный формат даты и времени. Ожидается формат ISO 8601.")
+            raise ValueError("Некорректный формат даты и времени")
         return value
 
 
 class CreateUserResponse(BaseModel):
+    """Модель ответа для создания пользователя"""
     id: str
     email: str
     fullName: str
     roles: List[str]
     verified: bool
-    banned: bool
-    createdAt: str  # если есть в ответе
+    banned: Optional[bool] = None
+    createdAt: str
 
     @field_validator("createdAt")
+    @classmethod
     def validate_created_at(cls, value: str) -> str:
         try:
             datetime.datetime.fromisoformat(value)

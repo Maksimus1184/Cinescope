@@ -27,33 +27,33 @@ class TestMoviesAPI:
         Тест на создание фильма с использованием токена админа.
         """
         with allure.step("Создание фильма через API"):
-            response = authorized_api_manager.movies_api.create_movie(create_movie_data)
+            # Убеждаемся, что rating есть
+            movie_data = create_movie_data.copy()
+            if "rating" not in movie_data:
+                movie_data["rating"] = random.randint(0, 5)
+
+            response = authorized_api_manager.movies_api.create_movie(movie_data)
             response_data = response.json()
             allure.attach(response.text, name="Response", attachment_type=allure.attachment_type.JSON)
 
         with allure.step("Проверка данных ответа"):
-            assert response_data["name"] == create_movie_data["name"]
-            assert response_data["imageUrl"] == create_movie_data["imageUrl"]
-            assert response_data["price"] == create_movie_data["price"]
-            assert response_data["description"] == create_movie_data["description"]
-            assert response_data["location"] == create_movie_data["location"]
-            assert response_data["published"] == create_movie_data["published"]
-            assert response_data["genreId"] == create_movie_data["genreId"]
+            assert response_data["name"] == movie_data["name"]
+            assert response_data["imageUrl"] == movie_data["imageUrl"]
+            assert response_data["price"] == movie_data["price"]
+            assert response_data["description"] == movie_data["description"]
+            assert response_data["location"] == movie_data["location"]
+            assert response_data["published"] == movie_data["published"]
+            assert response_data["genreId"] == movie_data["genreId"]
             assert "id" in response_data, "ID фильма отсутствует в ответе"
 
         with allure.step("Проверка схемы ответа через Pydantic модель"):
             movie = MovieResponse.model_validate(response_data)
             assert movie.id > 0
             assert movie.price > 0
-            # ИСПРАВЛЕНО: убираем проверку диапазона, так как в БД есть rating > 5
-            # Просто проверяем, что rating не отрицательный
             assert movie.rating >= 0, "Rating не может быть отрицательным"
-            # ИСПРАВЛЕНО: imageUrl может быть None в ответе от API
-            # Просто проверяем, что поле существует (даже если None)
             assert hasattr(movie, 'imageUrl'), "imageUrl отсутствует в ответе"
-            # ИСПРАВЛЕНО: genre может быть None или без поля id
-            # Просто проверяем, что поле существует
             assert hasattr(movie, 'genre'), "genre отсутствует в ответе"
+
         allure.attach(
             f"Создан фильм с ID: {response_data['id']}",
             name="Created movie ID",
@@ -91,38 +91,20 @@ class TestMoviesAPI:
             assert isinstance(response_data["movies"], list), "'movies' должен быть списком."
 
         with allure.step("Проверка схемы ответа через Pydantic модель"):
-            # ИСПРАВЛЕНО: MoviesListResponse теперь принимает Optional поля
             movies_list = MoviesListResponse.model_validate(response_data)
             assert len(movies_list.movies) <= params["pageSize"]
 
         with allure.step("Проверка данных фильмов"):
             for movie in response_data["movies"]:
-                # ИСПРАВЛЕНО: location может отсутствовать или быть None
-                if "location" in movie and movie["location"]:
-                    assert movie["location"] in params["locations"], \
-                        f"Локация {movie['location']} не входит в {params['locations']}"
+                if movie.get("location"):
+                    assert movie["location"] in params["locations"]
 
-                # ИСПРАВЛЕНО: проверка published с учетом возможного отсутствия
                 if "published" in movie:
-                    assert movie["published"] == params["published"], \
-                        f"published={movie['published']} не равен {params['published']}"
+                    assert movie["published"] == params["published"]
 
-                # ИСПРАВЛЕНО: rating может быть любым числом (в БД есть 8)
                 assert "rating" in movie, "rating отсутствует в ответе"
-                # Убираем проверку на диапазон 0-5, просто проверяем что это число
-                assert isinstance(movie["rating"], (int, float)), "rating должен быть числом"
-                # Опционально: проверяем что не отрицательный
-                assert movie["rating"] >= 0, "rating не может быть отрицательным"
-
-                # ИСПРАВЛЕНО: imageUrl может быть None
-                if "imageUrl" in movie:
-                    # Не проверяем на not None, просто логируем если None
-                    if movie["imageUrl"] is None:
-                        allure.attach(
-                            f"Фильм {movie.get('id')} имеет imageUrl = None",
-                            name="Warning",
-                            attachment_type=allure.attachment_type.TEXT
-                        )
+                assert isinstance(movie["rating"], (int, float))
+                assert movie["rating"] >= 0
 
         allure.attach(
             f"Код ответа {response.status_code}\nНайдено фильмов: {len(response_data['movies'])}",
@@ -142,7 +124,11 @@ class TestMoviesAPI:
         Тест на создание фильма с использованием токена админа и его поиск по ID.
         """
         with allure.step("Создание фильма через API"):
-            response = authorized_api_manager.movies_api.create_movie(create_movie_data)
+            movie_data = create_movie_data.copy()
+            if "rating" not in movie_data:
+                movie_data["rating"] = random.randint(0, 5)
+
+            response = authorized_api_manager.movies_api.create_movie(movie_data)
             created_movie = response.json()
             movie_id = created_movie["id"]
             allure.attach(str(movie_id), name="Created movie ID", attachment_type=allure.attachment_type.TEXT)
@@ -181,7 +167,11 @@ class TestMoviesAPI:
         Тест на редактирование фильма с использованием токена админа.
         """
         with allure.step("Создание фильма"):
-            create_response = authorized_api_manager.movies_api.create_movie(create_movie_data)
+            movie_data = create_movie_data.copy()
+            if "rating" not in movie_data:
+                movie_data["rating"] = random.randint(0, 5)
+
+            create_response = authorized_api_manager.movies_api.create_movie(movie_data)
             assert create_response.status_code == 201
             movie_id = create_response.json()["id"]
             allure.attach(str(movie_id), name="Created movie ID", attachment_type=allure.attachment_type.TEXT)
@@ -219,7 +209,11 @@ class TestMoviesAPI:
         Тест на создание фильма с использованием токена админа и его удаление.
         """
         with allure.step("Создание фильма"):
-            response = authorized_api_manager.movies_api.create_movie(create_movie_data)
+            movie_data = create_movie_data.copy()
+            if "rating" not in movie_data:
+                movie_data["rating"] = random.randint(0, 5)
+
+            response = authorized_api_manager.movies_api.create_movie(movie_data)
             created_movie = response.json()
             movie_id = created_movie["id"]
             allure.attach(str(movie_id), name="Created movie ID", attachment_type=allure.attachment_type.TEXT)
@@ -238,11 +232,11 @@ class TestMoviesAPI:
     @pytest.mark.api
     @pytest.mark.regression
     @pytest.mark.parametrize("location,expected_status,should_succeed", [
-        ("MSK", 201, True),   # Москва - валидная локация
-        ("SPB", 201, True),   # Санкт-Петербург - валидная локация
+        ("MSK", 201, True),  # Москва - валидная локация
+        ("SPB", 201, True),  # Санкт-Петербург - валидная локация
         ("NSK", 400, False),  # Новосибирск - невалидная локация
         ("KZN", 400, False),  # Казань - невалидная локация
-        ("", 400, False),     # Пустая строка
+        ("", 400, False),  # Пустая строка
     ])
     def test_create_movie_with_different_locations(
             self, authorized_api_manager, location, expected_status, should_succeed, create_movie_data
@@ -254,6 +248,8 @@ class TestMoviesAPI:
         with allure.step(f"Попытка создания фильма с локацией '{location}'"):
             movie_data = create_movie_data.copy()
             movie_data["location"] = location
+            if "rating" not in movie_data:
+                movie_data["rating"] = random.randint(0, 5)
 
             response = authorized_api_manager.movies_api.create_movie(
                 movie_data=movie_data,

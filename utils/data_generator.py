@@ -1,148 +1,145 @@
+"""
+Генератор тестовых данных
+"""
 import random
 import string
-from faker import Faker
-import datetime
-from uuid import uuid4
+import re
+import time
 
-faker = Faker()
 
 class DataGenerator:
+    """Генератор тестовых данных"""
 
     @staticmethod
-    def generate_random_email():
-        random_string = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
-        return f"kek{random_string}@gmail.com"
+    def generate_random_email() -> str:
+        """Генерация случайного email"""
+        domains = ["gmail.com", "mail.ru", "yandex.ru", "test.com"]
+        name = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
+        domain = random.choice(domains)
+        return f"{name}@{domain}"
 
     @staticmethod
-    def generate_random_name():
-        return f"{faker.first_name()} {faker.last_name()}"
+    def generate_random_name() -> str:
+        """Генерация случайного имени"""
+        first_names = ["John", "Jane", "Alex", "Maria", "Michael", "Sarah", "David", "Emma"]
+        last_names = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis"]
+        return f"{random.choice(first_names)} {random.choice(last_names)}"
 
     @staticmethod
-    def generate_random_password():
+    def generate_random_password(length: int = 12) -> str:
         """
-        Генерация пароля, соответствующего требованиям:
-        - Минимум 1 буква.
-        - Минимум 1 цифра.
-        - Допустимые символы.
-        - Длина от 8 до 20 символов.
+        Генерация пароля, соответствующего требованиям API
         """
-        # Гарантируем наличие хотя бы одной буквы и одной цифры
-        letters = random.choice(string.ascii_letters)  # Одна буква
-        digits = random.choice(string.digits)  # Одна цифра
+        special_chars = "?@#$%^&*_\\-+()[]{}><\\\\/\\|\"'.,:;"
+        letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZабвгдеёжзийклмнопрстуфхцчшщъыьэюяАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ"
+        all_allowed = letters + string.digits + special_chars
 
-        # Дополняем пароль случайными символами из допустимого набора
-        special_chars = "?@#$%^&*|:"
-        all_chars = string.ascii_letters + string.digits + special_chars
-        remaining_length = random.randint(6, 18)  # Остальная длина пароля (минимум 8, максимум 20)
-        remaining_chars = ''.join(random.choices(all_chars, k=remaining_length))
+        password = []
+        password.append(random.choice(letters))
+        password.append(random.choice(string.digits))
 
-        # Перемешиваем пароль для рандомизации
-        password = list(letters + digits + remaining_chars)
+        remaining = length - 2
+        if remaining > 0:
+            password.extend(random.choices(all_allowed, k=remaining))
+
         random.shuffle(password)
+        result = ''.join(password)[:20]
 
-        return ''.join(password)
+        while len(result) < 8:
+            result += random.choice(all_allowed)
 
-    @staticmethod
-    def generate_movie_title():
-        # Генерируем название фильма (например, "The Secret of XXXXXX")
-        adjective = faker.word().capitalize()
-        noun = faker.word().capitalize()
-        return f"The {adjective} of {noun} #{random.randint(100, 999)}"
+        pattern = r'^(?=.*[a-zA-Zа-яА-Я])(?=.*\d)[a-zA-Zа-яА-Я\d?@#$%^&*_\-+()\[\]{}><\\/\\|"\'.,:;]{8,20}$'
+        if not re.match(pattern, result):
+            return DataGenerator.generate_random_password(length)
 
-    @staticmethod
-    def generate_image_url():
-        # Генерируем URL, имитирующий изображение
-        unique_part = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
-        return f"https://cdn.movies.com/posters/movie_{unique_part}.jpg"
+        return result
 
     @staticmethod
-    def generate_price():
-        # Цена от 1 до 1000
-        return random.randint(1, 1000)
+    def generate_movie_title() -> str:
+        """Генерация уникального названия фильма"""
+        adjectives = ["Great", "Amazing", "Wonderful", "Incredible", "Fantastic", "Epic", "Brilliant", "Magnificent"]
+        nouns = ["Movie", "Story", "Adventure", "Journey", "Tale", "Saga", "Quest", "Dream"]
+        timestamp = int(time.time() * 1000) % 100000
+        return f"The {random.choice(adjectives)} {random.choice(nouns)} {timestamp}"
 
     @staticmethod
-    def generate_description():
-        # Генерируем несколько предложений для описания
-        return faker.paragraph(nb_sentences=3)
+    def generate_image_url() -> str:
+        """Генерация URL изображения"""
+        return f"https://cdn.movies.com/posters/movie_{''.join(random.choices(string.ascii_lowercase + string.digits, k=10))}.jpg"
 
     @staticmethod
-    def generate_location():
-        # Случайный выбор из известных локаций
-        locations = ["SPB", "MSK"]
-        return random.choice(locations)
+    def generate_price() -> int:
+        """Генерация цены"""
+        return random.randint(50, 1000)
 
     @staticmethod
-    def generate_user_data() -> dict:
-        """Генерирует данные для тестового пользователя"""
-        return {
-            'id': str(uuid4()),  # генерируем UUID как строку
-            'email': DataGenerator.generate_random_email(),
-            'full_name': DataGenerator.generate_random_name(),
-            'password': DataGenerator.generate_random_password(),
-            'created_at': datetime.datetime.now(),
-            'updated_at': datetime.datetime.now(),
-            'verified': False,
-            'banned': False,
-            'roles': '{USER}'
-        }
+    def generate_description() -> str:
+        """Генерация описания"""
+        phrases = [
+            "Great movie", "Amazing story", "Beautiful cinematography",
+            "Must watch", "Incredible performance", "Stunning visuals",
+            "Heartwarming tale", "Action-packed adventure", "Thought-provoking drama"
+        ]
+        description = " ".join(random.choices(phrases, k=random.randint(2, 4)))
+        if len(description) > 200:
+            description = description[:197] + "..."
+        return description
+
+    @staticmethod
+    def generate_location() -> str:
+        """Генерация локации"""
+        return random.choice(["MSK", "SPB"])
+
+    @staticmethod
+    def generate_genre_id() -> int:
+        """Генерация ID жанра - только рабочие ID"""
+        # Исключаем проблемные: 1, 3, 5
+        working_genres = [4, 6, 7, 8, 9, 10]
+        return random.choice(working_genres)
+
+    @staticmethod
+    def generate_rating() -> float:
+        """Генерация рейтинга (0-5)"""
+        return round(random.uniform(0, 5), 1)
 
     @staticmethod
     def generate_movie_data() -> dict:
-        """
-        Генерирует данные для тестового фильма
-        """
-        unique_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
-
-        # Список существующих ID жанров (нужно узнать из документации или БД)
-        # Судя по ответу API, есть жанр с id 3 ("Фантастика")
-        existing_genre_ids = [3]
-
+        """Генерация данных для фильма"""
         return {
-            'id': str(uuid4()),
-            'name': f"Test Movie {unique_id}",
-            'description': faker.paragraph(nb_sentences=3),
-            'price': random.randint(10, 100),
-            'imageUrl': f"https://test-cdn.com/movies/{unique_id}.jpg",
-            'location': random.choice(["SPB", "MSK"]),
-            'published': True,
-            'createdAt': datetime.datetime.now().isoformat(),
-            'rating': round(random.uniform(1.0, 10.0), 1),
-            'genreId': random.choice(existing_genre_ids)  # <-- ИЗМЕНЕНО: теперь число
+            "name": DataGenerator.generate_movie_title(),
+            "imageUrl": DataGenerator.generate_image_url(),
+            "price": DataGenerator.generate_price(),
+            "description": DataGenerator.generate_description(),
+            "location": DataGenerator.generate_location(),
+            "published": True,
+            "genreId": DataGenerator.generate_genre_id(),
+            "rating": DataGenerator.generate_rating()
         }
 
     @staticmethod
-    def generate_movie_data_with_params(**kwargs) -> dict:
-        """
-        Генерирует данные фильма с возможностью переопределить параметры
+    def generate_user_data() -> dict:
+        """Генерация данных для пользователя"""
+        return {
+            "email": DataGenerator.generate_random_email(),
+            "fullName": DataGenerator.generate_random_name(),
+            "password": DataGenerator.generate_random_password(),
+            "roles": ["USER"]
+        }
 
-        Args:
-            **kwargs: параметры для переопределения
 
-        Returns:
-            dict: словарь с данными фильма
-        """
-        movie_data = DataGenerator.generate_movie_data()
-        movie_data.update(kwargs)  # переопределяем переданные параметры
-        return movie_data
+# Тест для проверки генератора
+if __name__ == "__main__":
+    # Проверяем генерацию паролей
+    for i in range(5):
+        password = DataGenerator.generate_random_password()
+        pattern = r'^(?=.*[a-zA-Zа-яА-Я])(?=.*\d)[a-zA-Zа-яА-Я\d?@#$%^&*_\-+()\[\]{}><\\/\\|"\'.,:;]{8,20}$'
+        assert re.match(pattern, password), f"Пароль {password} не соответствует требованиям"
+    print("✅ Все пароли валидны!")
 
-    @staticmethod
-    def generate_random_int(length: int) -> int:
-        """
-        Генерирует случайное число заданной длины
-        Например: generate_random_int(5) -> 12345
-        """
-        import random
-        import string
-
-        # Генерируем случайное число указанной длины
-        min_value = 10 ** (length - 1)
-        max_value = (10 ** length) - 1
-        return random.randint(min_value, max_value)
-
-    @staticmethod
-    def generate_random_string(length: int) -> str:
-        """Генерирует случайную строку"""
-        import random
-        import string
-        return ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
-
+    # Проверяем генерацию данных для фильма
+    movie = DataGenerator.generate_movie_data()
+    print(f"\nДанные для фильма: {movie}")
+    assert "rating" in movie, "❌ rating отсутствует!"
+    assert 0 <= movie["rating"] <= 5, f"❌ rating {movie['rating']} вне диапазона!"
+    assert movie["genreId"] not in [1, 3, 5], f"❌ genreId {movie['genreId']} проблемный!"
+    print("✅ Все данные для фильма корректны!")

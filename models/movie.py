@@ -1,15 +1,16 @@
 """
 Pydantic модели для Movie API
-Соответствуют реальному API
+Адаптированы под реальный API (который не соответствует Swagger)
 """
 from datetime import datetime
-from typing import List, Optional
-from pydantic import BaseModel, validator, Field
+from typing import List, Optional, Any
+from pydantic import BaseModel, validator, field_validator
+import logging
 
 
 class Genre(BaseModel):
-    """Модель жанра - API возвращает только name, id не всегда есть"""
-    id: Optional[int] = None  # id может отсутствовать
+    """Модель жанра - реальное API возвращает только name"""
+    id: Optional[int] = None  # API не возвращает id!
     name: str
 
 
@@ -26,20 +27,20 @@ class Review(BaseModel):
 class MovieResponse(BaseModel):
     """
     Модель ответа для одного фильма
-    Адаптирована под реальный API
+    Адаптирована под РЕАЛЬНЫЙ API (баг: не соответствует Swagger)
     """
     id: int
     name: str
-    imageUrl: Optional[str] = None  # может быть null в БД
+    imageUrl: Optional[str] = None  # БАГ: в БД есть null, хотя Swagger требует string
     price: int
     description: str
     location: str
     published: bool
     genreId: int
     createdAt: datetime
-    rating: float  # убираем валидацию <=5, т.к. в БД есть значения >5
+    rating: float
     reviews: List[Review] = []
-    genre: Optional[Genre] = None  # genre может отсутствовать или быть без id
+    genre: Optional[Genre] = None  # БАГ: API возвращает без id
 
     @validator('price')
     def price_must_be_positive(cls, v):
@@ -55,19 +56,26 @@ class MovieResponse(BaseModel):
 
     class Config:
         from_attributes = True
+        extra = "ignore"  # Игнорируем лишние поля
 
 
 class MoviesListResponse(BaseModel):
     """
     Модель ответа для списка фильмов
-    Адаптирована под реальный ответ API
+    Адаптирована под РЕАЛЬНЫЙ API
     """
     movies: List[MovieResponse]
-    # Делаем все поля Optional, так как API может не возвращать их
+    # Реальный API возвращает count и pageCount, а не total/page/pageSize
+    count: Optional[int] = None  # общее количество фильмов
+    pageCount: Optional[int] = None  # количество страниц
+    # Оставляем для совместимости со Swagger
     total: Optional[int] = None
     page: Optional[int] = None
     pageSize: Optional[int] = None
-    pageCount: Optional[int] = None  # API возвращает pageCount вместо total?
+
+    class Config:
+        from_attributes = True
+        extra = "ignore"
 
 
 class CreateMovieRequest(BaseModel):

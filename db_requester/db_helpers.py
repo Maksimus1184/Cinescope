@@ -1,3 +1,4 @@
+
 from sqlalchemy.orm import Session
 from db_models.user import UserDBModel
 from db_models.movie import MovieDBModel
@@ -35,7 +36,7 @@ class DBHelper:
         self.db_session.delete(user)
         self.db_session.commit()
 
-    # ===== НОВЫЕ МЕТОДЫ для работы с фильмами =====
+    # ===== Методы для работы с фильмами =====
     def create_test_movie(self, movie_data: dict) -> MovieDBModel:
         """
         Создает тестовый фильм в БД
@@ -136,3 +137,13 @@ class DBHelper:
             if obj:
                 self.db_session.delete(obj)
         self.db_session.commit()
+
+    # ===== НОВЫЙ МЕТОД =====
+    def get_first_movie(self):
+        """
+        Получает первый фильм из БД
+
+        Returns:
+            MovieDBModel или None, если фильмов нет
+        """
+        return self.db_session.query(MovieDBModel).first()
